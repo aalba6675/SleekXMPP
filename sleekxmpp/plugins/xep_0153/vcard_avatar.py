@@ -9,12 +9,32 @@
 import hashlib
 import logging
 import threading
+import sys
 
 from sleekxmpp.stanza import Presence
 from sleekxmpp.exceptions import XMPPError
 from sleekxmpp.xmlstream import register_stanza_plugin
 from sleekxmpp.plugins.base import BasePlugin
 from sleekxmpp.plugins.xep_0153 import stanza, VCardTempUpdate
+
+
+def _to_bytes(data):
+    '''py3 requires bytes for hashing.
+    Assume PHOTO/BINVAL is (conservatively) ascii
+    and fail otherwise.
+
+    :param data: to-be-hashed data
+    :type data: str
+    :return: make bytes for Py3
+    :rtype: str in Py2, bytes in Py3
+    '''
+
+    assert isinstance(data, str)
+
+    if sys.version_info >= (3,0):
+        return data.encode('ascii') ## BINVAL should be ascii
+    else:
+        return data
 
 
 log = logging.getLogger(__name__)
@@ -77,9 +97,9 @@ class XEP_0153(BasePlugin):
     def _start(self, event):
         try:
             vcard = self.xmpp['xep_0054'].get_vcard(self.xmpp.boundjid.bare)
-            data = vcard['vcard_temp']['PHOTO']['BINVAL']
+            data = _to_bytes(vcard['vcard_temp']['PHOTO']['BINVAL'])
             if not data:
-                new_hash = ''
+                new_hash = _to_bytes('')
             else:
                 new_hash = hashlib.sha1(data).hexdigest()
             self.api['set_hash'](self.xmpp.boundjid, args=new_hash)
@@ -113,9 +133,9 @@ class XEP_0153(BasePlugin):
         try:
             iq = self.xmpp['xep_0054'].get_vcard(jid=jid.bare, ifrom=ifrom)
 
-            data = iq['vcard_temp']['PHOTO']['BINVAL']
+            data = _to_bytes(iq['vcard_temp']['PHOTO']['BINVAL'])
             if not data:
-                new_hash = ''
+                new_hash = _to_bytes('')
             else:
                 new_hash = hashlib.sha1(data).hexdigest()
 
